@@ -1,5 +1,4 @@
 const express = require('express');
-const seedData = require('./task.json');
 
 const app = express();
 const port = 3000;
@@ -9,10 +8,28 @@ app.use(express.urlencoded({ extended: true }));
 
 const PRIORITY_LEVELS = ['low', 'medium', 'high'];
 
-let tasks = seedData.tasks.map((task, index) => ({
+const initialTasks = [
+    { id: 1, title: 'Set up environment', description: 'Install Node.js, npm, and git', completed: true },
+    { id: 2, title: 'Create a new project', description: 'Create a new project using the Express application generator', completed: true },
+    { id: 3, title: 'Install nodemon', description: 'Install nodemon as a development dependency', completed: true },
+    { id: 4, title: 'Install Express', description: 'Install Express', completed: false },
+    { id: 5, title: 'Install Mongoose', description: 'Install Mongoose', completed: false },
+    { id: 6, title: 'Install Morgan', description: 'Install Morgan', completed: false },
+    { id: 7, title: 'Install body-parser', description: 'Install body-parser', completed: false },
+    { id: 8, title: 'Install cors', description: 'Install cors', completed: false },
+    { id: 9, title: 'Install passport', description: 'Install passport', completed: false },
+    { id: 10, title: 'Install passport-local', description: 'Install passport-local', completed: false },
+    { id: 11, title: 'Install passport-local-mongoose', description: 'Install passport-local-mongoose', completed: false },
+    { id: 12, title: 'Install express-session', description: 'Install express-session', completed: false },
+    { id: 13, title: 'Install connect-mongo', description: 'Install connect-mongo', completed: false },
+    { id: 14, title: 'Install dotenv', description: 'Install dotenv', completed: false },
+    { id: 15, title: 'Install jsonwebtoken', description: 'Install jsonwebtoken', completed: false },
+];
+
+let tasks = initialTasks.map((task, index) => ({
     ...task,
-    priority: isValidPriority(task.priority) ? task.priority : 'medium',
-    createdAt: new Date(Date.now() - (seedData.tasks.length - index) * 1000).toISOString(),
+    priority: 'medium',
+    createdAt: new Date(Date.now() - (initialTasks.length - index) * 1000).toISOString(),
 }));
 
 let nextId = tasks.reduce((max, task) => Math.max(max, task.id), 0) + 1;
@@ -33,22 +50,16 @@ function findTaskIndexById(id) {
     return tasks.findIndex((task) => task.id === id);
 }
 
-function validateNewTask(body) {
+function parseTaskId(rawId) {
+    if (!/^\d+$/.test(rawId)) return null;
+    return Number(rawId);
+}
+
+function validateTaskFields(body) {
     const errors = [];
     if (!isNonEmptyString(body.title)) errors.push('title is required and must be a non-empty string');
     if (!isNonEmptyString(body.description)) errors.push('description is required and must be a non-empty string');
     if (!isBoolean(body.completed)) errors.push('completed is required and must be a boolean');
-    if (body.priority !== undefined && !isValidPriority(body.priority)) {
-        errors.push(`priority must be one of: ${PRIORITY_LEVELS.join(', ')}`);
-    }
-    return errors;
-}
-
-function validateTaskUpdate(body) {
-    const errors = [];
-    if (body.title !== undefined && !isNonEmptyString(body.title)) errors.push('title must be a non-empty string');
-    if (body.description !== undefined && !isNonEmptyString(body.description)) errors.push('description must be a non-empty string');
-    if (body.completed !== undefined && !isBoolean(body.completed)) errors.push('completed must be a boolean');
     if (body.priority !== undefined && !isValidPriority(body.priority)) {
         errors.push(`priority must be one of: ${PRIORITY_LEVELS.join(', ')}`);
     }
@@ -88,17 +99,20 @@ app.get('/tasks/priority/:level', (req, res) => {
 });
 
 app.get('/tasks/:id', (req, res) => {
-    const id = Number(req.params.id);
+    const id = parseTaskId(req.params.id);
+    if (id === null) {
+        return res.status(400).json({ error: `Invalid task id: ${req.params.id}` });
+    }
     const task = tasks.find((t) => t.id === id);
     if (!task) {
-        return res.status(404).json({ error: `Task with id ${req.params.id} not found` });
+        return res.status(404).json({ error: `Task with id ${id} not found` });
     }
     res.status(200).json(task);
 });
 
 app.post('/tasks', (req, res) => {
     const body = req.body || {};
-    const errors = validateNewTask(body);
+    const errors = validateTaskFields(body);
     if (errors.length > 0) {
         return res.status(400).json({ errors });
     }
@@ -117,32 +131,38 @@ app.post('/tasks', (req, res) => {
 });
 
 app.put('/tasks/:id', (req, res) => {
-    const id = Number(req.params.id);
+    const id = parseTaskId(req.params.id);
+    if (id === null) {
+        return res.status(400).json({ error: `Invalid task id: ${req.params.id}` });
+    }
     const index = findTaskIndexById(id);
     if (index === -1) {
-        return res.status(404).json({ error: `Task with id ${req.params.id} not found` });
+        return res.status(404).json({ error: `Task with id ${id} not found` });
     }
 
     const body = req.body || {};
-    const errors = validateTaskUpdate(body);
+    const errors = validateTaskFields(body);
     if (errors.length > 0) {
         return res.status(400).json({ errors });
     }
 
     const task = tasks[index];
-    if (body.title !== undefined) task.title = body.title.trim();
-    if (body.description !== undefined) task.description = body.description.trim();
-    if (body.completed !== undefined) task.completed = body.completed;
+    task.title = body.title.trim();
+    task.description = body.description.trim();
+    task.completed = body.completed;
     if (body.priority !== undefined) task.priority = body.priority;
 
     res.status(200).json(task);
 });
 
 app.delete('/tasks/:id', (req, res) => {
-    const id = Number(req.params.id);
+    const id = parseTaskId(req.params.id);
+    if (id === null) {
+        return res.status(400).json({ error: `Invalid task id: ${req.params.id}` });
+    }
     const index = findTaskIndexById(id);
     if (index === -1) {
-        return res.status(404).json({ error: `Task with id ${req.params.id} not found` });
+        return res.status(404).json({ error: `Task with id ${id} not found` });
     }
 
     const [deletedTask] = tasks.splice(index, 1);
@@ -154,7 +174,7 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
-    if (err.type === 'entity.parse.failed') {
+    if (err && err.type === 'entity.parse.failed') {
         return res.status(400).json({ error: 'Invalid JSON payload' });
     }
     console.error(err);

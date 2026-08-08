@@ -21,7 +21,7 @@ Tasks are stored in memory (they reset whenever the server restarts) and follow 
 - `priority` (`low` | `medium` | `high`) is an optional extension field — it defaults to `medium` if omitted.
 - `createdAt` is set automatically when a task is created and is used for sorting.
 
-The server seeds its initial in-memory task list from [`task.json`](task.json).
+The server seeds its initial in-memory task list from a hardcoded array in [`app.js`](app.js) — there is no file or database backing the store, so all data resets on restart.
 
 ## Setup Instructions
 
@@ -83,7 +83,7 @@ Retrieve a single task by its numeric `id`.
 curl http://localhost:3000/tasks/1
 ```
 
-**Responses:** `200 OK` with the task, or `404 Not Found` if no task has that id.
+**Responses:** `200 OK` with the task, `400 Bad Request` if `:id` isn't a valid integer, or `404 Not Found` if no task has that id.
 
 ### `POST /tasks`
 
@@ -115,15 +115,15 @@ curl -X POST http://localhost:3000/tasks \
 
 ### `PUT /tasks/:id`
 
-Update an existing task by id. Any of `title`, `description`, `completed`, `priority` may be included — only the provided fields are updated, and each is validated using the same rules as `POST`.
+Replace an existing task's fields by id. `title`, `description`, and `completed` are required (same validation rules as `POST`); `priority` is optional and left unchanged if omitted.
 
 ```bash
 curl -X PUT http://localhost:3000/tasks/1 \
   -H "Content-Type: application/json" \
-  -d '{"completed":true}'
+  -d '{"title":"Set up environment","description":"Install Node.js, npm, and git","completed":true,"priority":"high"}'
 ```
 
-**Responses:** `200 OK` with the updated task, `404 Not Found` if the id doesn't exist, or `400 Bad Request` if a provided field is invalid.
+**Responses:** `200 OK` with the updated task, `400 Bad Request` if `:id` is malformed or a required field is missing/invalid, or `404 Not Found` if the id doesn't exist.
 
 ### `DELETE /tasks/:id`
 
@@ -133,7 +133,7 @@ Delete a task by id.
 curl -X DELETE http://localhost:3000/tasks/1
 ```
 
-**Responses:** `200 OK` with the deleted task, or `404 Not Found` if the id doesn't exist.
+**Responses:** `200 OK` with the deleted task, `400 Bad Request` if `:id` isn't a valid integer, or `404 Not Found` if the id doesn't exist.
 
 ## Error Handling
 
