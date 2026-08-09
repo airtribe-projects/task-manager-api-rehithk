@@ -1,10 +1,10 @@
 # Task Manager API
 
-A RESTful API for managing tasks, built with Node.js and Express.js using in-memory storage (no database). Supports full CRUD operations, input validation, filtering, sorting, and task prioritization.
+This is a simple REST API for managing a to-do list. It is built with Node.js and Express. There is no database — all tasks are kept in memory, so they reset when you restart the server.
 
-## Overview
+The API can create, read, update, and delete tasks. It also checks your input and gives clear errors when something is wrong. On top of that, it supports filtering, sorting, and task priority.
 
-Tasks are stored in memory (they reset whenever the server restarts) and follow this schema:
+## What a task looks like
 
 ```json
 {
@@ -17,79 +17,74 @@ Tasks are stored in memory (they reset whenever the server restarts) and follow 
 }
 ```
 
-- `id`, `title`, `description`, `completed` are the core fields required by the assignment.
-- `priority` (`low` | `medium` | `high`) is an optional extension field — it defaults to `medium` if omitted.
-- `createdAt` is set automatically when a task is created and is used for sorting.
+- `id`, `title`, `description`, and `completed` are the main fields.
+- `priority` can be `low`, `medium`, or `high`. If you don't set it, it defaults to `medium`.
+- `createdAt` is added automatically when a task is created. It's used for sorting.
 
-The server seeds its initial in-memory task list from a hardcoded array in [`app.js`](app.js) — there is no file or database backing the store, so all data resets on restart.
+The starting tasks are written directly in `app.js` — there's no file or database behind them, so once you restart the server, you're back to the original list.
 
-## Setup Instructions
+## How to run it
 
-**Requirements:** Node.js >= 18
+You need Node.js version 18 or higher.
 
 ```bash
-# Install dependencies
+# Install the dependencies
 npm install
 
-# Start the server (listens on port 3000)
+# Start the server
 node app.js
 ```
 
-The API will be available at `http://localhost:3000`.
+The server runs at `http://localhost:3000`.
 
-## Running Tests
+## How to run the tests
 
 ```bash
 npm run test
 ```
 
-This runs the `tap` test suite in `test/server.test.js` against the app using `supertest`.
+This runs the tests in `test/server.test.js`.
 
-## API Endpoints
+## The endpoints
 
-### `GET /tasks`
+### `GET /tasks` — get all tasks
 
-Retrieve all tasks. Supports optional query parameters:
+You can narrow down or reorder the results with two optional query params:
 
-| Query param  | Values           | Description                                   |
-|--------------|------------------|------------------------------------------------|
-| `completed`  | `true` / `false` | Filter tasks by completion status              |
-| `sort`       | `asc` / `desc`   | Sort tasks by creation date                    |
+| Param       | Values           | What it does                     |
+|-------------|------------------|-----------------------------------|
+| `completed` | `true` / `false` | Only show tasks with that status |
+| `sort`      | `asc` / `desc`   | Sort tasks by when they were made |
 
 ```bash
 curl http://localhost:3000/tasks
 curl "http://localhost:3000/tasks?completed=true"
 curl "http://localhost:3000/tasks?sort=desc"
-curl "http://localhost:3000/tasks?completed=false&sort=asc"
 ```
 
-**Responses:** `200 OK` with an array of tasks, or `400 Bad Request` if `completed`/`sort` has an invalid value.
+Returns `200` with the list of tasks. Returns `400` if `completed` or `sort` is given something other than the values above.
 
-### `GET /tasks/priority/:level`
+### `GET /tasks/priority/:level` — get tasks by priority
 
-Retrieve all tasks with the given priority (`low`, `medium`, or `high`).
+`:level` must be `low`, `medium`, or `high`.
 
 ```bash
 curl http://localhost:3000/tasks/priority/high
 ```
 
-**Responses:** `200 OK` with an array of tasks, or `400 Bad Request` if `:level` is not a valid priority.
+Returns `200` with the matching tasks. Returns `400` if `:level` isn't one of the three values.
 
-### `GET /tasks/:id`
-
-Retrieve a single task by its numeric `id`.
+### `GET /tasks/:id` — get one task
 
 ```bash
 curl http://localhost:3000/tasks/1
 ```
 
-**Responses:** `200 OK` with the task, `400 Bad Request` if `:id` isn't a valid integer, or `404 Not Found` if no task has that id.
+Returns `200` with the task. Returns `400` if `:id` isn't a number. Returns `404` if no task has that id.
 
-### `POST /tasks`
+### `POST /tasks` — create a task
 
-Create a new task.
-
-**Body:**
+Send a JSON body like this:
 
 ```json
 {
@@ -100,10 +95,11 @@ Create a new task.
 }
 ```
 
-- `title` — required, non-empty string.
-- `description` — required, non-empty string.
-- `completed` — required, boolean.
-- `priority` — optional, one of `low` / `medium` / `high` (defaults to `medium`).
+Rules:
+- `title` — must be a non-empty piece of text.
+- `description` — must be a non-empty piece of text.
+- `completed` — must be `true` or `false`.
+- `priority` — optional. If you set it, it must be `low`, `medium`, or `high`. Defaults to `medium`.
 
 ```bash
 curl -X POST http://localhost:3000/tasks \
@@ -111,11 +107,11 @@ curl -X POST http://localhost:3000/tasks \
   -d '{"title":"Buy groceries","description":"Milk, eggs, bread","completed":false,"priority":"low"}'
 ```
 
-**Responses:** `201 Created` with the new task, or `400 Bad Request` if validation fails.
+Returns `201` with the new task. Returns `400` if the input breaks any of the rules above.
 
-### `PUT /tasks/:id`
+### `PUT /tasks/:id` — update a task
 
-Replace an existing task's fields by id. `title`, `description`, and `completed` are required (same validation rules as `POST`); `priority` is optional and left unchanged if omitted.
+You must send `title`, `description`, and `completed`, following the same rules as `POST`. `priority` is optional — if you leave it out, the task keeps its current priority.
 
 ```bash
 curl -X PUT http://localhost:3000/tasks/1 \
@@ -123,20 +119,18 @@ curl -X PUT http://localhost:3000/tasks/1 \
   -d '{"title":"Set up environment","description":"Install Node.js, npm, and git","completed":true,"priority":"high"}'
 ```
 
-**Responses:** `200 OK` with the updated task, `400 Bad Request` if `:id` is malformed or a required field is missing/invalid, or `404 Not Found` if the id doesn't exist.
+Returns `200` with the updated task. Returns `400` if `:id` isn't a number, or if a field breaks the rules. Returns `404` if no task has that id.
 
-### `DELETE /tasks/:id`
-
-Delete a task by id.
+### `DELETE /tasks/:id` — delete a task
 
 ```bash
 curl -X DELETE http://localhost:3000/tasks/1
 ```
 
-**Responses:** `200 OK` with the deleted task, `400 Bad Request` if `:id` isn't a valid integer, or `404 Not Found` if the id doesn't exist.
+Returns `200` with the deleted task. Returns `400` if `:id` isn't a number. Returns `404` if no task has that id.
 
-## Error Handling
+## Errors, in short
 
-- `400 Bad Request` — invalid input (missing/invalid fields, invalid query params, malformed JSON body).
-- `404 Not Found` — task id or priority level not found, or an undefined route.
-- `500 Internal Server Error` — unexpected server error.
+- `400` — something about your request was wrong (bad input, bad query param, broken JSON).
+- `404` — the task (or route) you asked for doesn't exist.
+- `500` — something went wrong on the server side.
